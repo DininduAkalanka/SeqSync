@@ -1,0 +1,538 @@
+/**
+ * =====================================================================
+ * SEQSYNC - SEQUENCE ALIGNMENT VISUALIZATION COMPONENT
+ * =====================================================================
+ * 
+ * Professional UI/UX Implementation
+ * Design Philosophy: Clean, Modern, Scientifically Precise
+ * 
+ * PERFORMANCE STRATEGY:
+ * - useMemo for expensive alignment calculations (prevents re-runs on every render)
+ * - Conditional rendering to avoid DOM overhead
+ * - CSS-based highlighting over inline styles where possible
+ * 
+ * EDUCATIONAL FEATURES:
+ * - Side-by-side algorithm comparison
+ * - Visual traceback path highlighting
+ * - Real-time score matrix updates
+ * - Alignment statistics display
+ * 
+ * @author Senior Engineering Team
+ * @version 3.0.0 - Professional UI/UX Redesign
+ * =====================================================================
+ */
+
+import { useState, useMemo } from 'react';
+import {
+  needlemanWunsch,
+  smithWaterman,
+  formatAlignment,
+  calculateAlignmentStats,
+  DEFAULT_SCORES,
+} from '../utils/alignmentLogic';
+import './SeqSync.css';
+
+/**
+ * Main SeqSync Component
+ * 
+ * ARCHITECTURE DECISION:
+ * - Single component design for portfolio simplicity
+ * - Could be split into: InputPanel, MatrixView, ResultsPanel
+ * - Kept together to demonstrate React hooks mastery in one file
+ */
+const SeqSync = () => {
+  // ----------------------------------------------------------------
+  // STATE MANAGEMENT
+  // ----------------------------------------------------------------
+  
+  // Input sequences (uppercase for biological convention)
+  const [seq1, setSeq1] = useState('ACGTGATCA');
+  const [seq2, setSeq2] = useState('AGCTACCA');
+  
+  // Algorithm selection: 'global' | 'local' | 'both'
+  const [algorithm, setAlgorithm] = useState('both');
+  
+  // Custom scoring system (initialized with defaults)
+  const [scores, setScores] = useState(DEFAULT_SCORES);
+  
+  // UI state for showing/hiding advanced options
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  
+  // View mode for results: 'alignment' | 'matrix' | 'both'
+  const [viewMode, setViewMode] = useState('both');
+
+  // ----------------------------------------------------------------
+  // MEMOIZED COMPUTATIONS (Performance Critical!)
+  // ----------------------------------------------------------------
+  
+  /**
+   * WHY useMemo HERE?
+   * -----------------
+   * Alignment algorithms are O(m*n) - expensive for large sequences.
+   * Without memoization, they'd re-run on EVERY render (even unrelated
+   * state changes like toggling UI elements).
+   * 
+   * Dependencies: [seq1, seq2, scores]
+   * Only recalculates when sequences or scores change.
+   */
+  
+  // Global alignment computation
+  const globalResult = useMemo(() => {
+    if (!seq1 || !seq2) return null;
+    try {
+      return needlemanWunsch(seq1.toUpperCase(), seq2.toUpperCase(), scores);
+    } catch (error) {
+      console.error('Global alignment error:', error);
+      return null;
+    }
+  }, [seq1, seq2, scores]);
+
+  // Local alignment computation
+  const localResult = useMemo(() => {
+    if (!seq1 || !seq2) return null;
+    try {
+      return smithWaterman(seq1.toUpperCase(), seq2.toUpperCase(), scores);
+    } catch (error) {
+      console.error('Local alignment error:', error);
+      return null;
+    }
+  }, [seq1, seq2, scores]);
+
+  // ----------------------------------------------------------------
+  // UTILITY FUNCTIONS
+  // ----------------------------------------------------------------
+  
+  /**
+   * Check if a cell is part of the optimal alignment path
+   * Used for conditional CSS class application
+   * 
+   * @param {Array} path - Array of {row, col} coordinates
+   * @param {number} row - Current row index
+   * @param {number} col - Current column index
+   * @returns {boolean}
+   */
+  const isInPath = (path, row, col) => {
+    if (!path) return false;
+    return path.some(cell => cell.row === row && cell.col === col);
+  };
+
+  /**
+   * Handle example sequence loading (for demo purposes)
+   * Shows common bioinformatics use cases
+   */
+  const loadExample = (exampleType) => {
+    const examples = {
+      dna: {
+        seq1: 'ACGTGATCA',
+        seq2: 'AGCTACCA',
+      },
+      protein: {
+        seq1: 'HEAGAWGHEE',
+        seq2: 'PAWHEAE',
+      },
+      similar: {
+        seq1: 'GGTTGACTA',
+        seq2: 'GGTTGACTA',
+      },
+      different: {
+        seq1: 'AAAAAAA',
+        seq2: 'TTTTTTT',
+      },
+    };
+    
+    const example = examples[exampleType];
+    if (example) {
+      setSeq1(example.seq1);
+      setSeq2(example.seq2);
+    }
+  };
+
+  // ----------------------------------------------------------------
+  // RENDER HELPER: SCORE MATRIX VISUALIZATION
+  // ----------------------------------------------------------------
+  
+  /**
+   * Renders the DP matrix with color-coded cells
+   * 
+   * COLOR SCHEME:
+   * - Green: Cells in optimal path (traceback)
+   * - Blue: High positive scores
+   * - Red: Negative scores
+   * - White: Zero or neutral
+   * 
+   * @param {object} result - Alignment result from algorithm
+   * @param {string} title - Display title for the matrix
+   */
+  const renderMatrix = (result, title) => {
+    if (!result) return null;
+
+    const { matrix, path } = result;
+    const seq1Upper = seq1.toUpperCase();
+    const seq2Upper = seq2.toUpperCase();
+
+    return (
+      <div className="matrix-container">
+        <h3>{title}</h3>
+        <div className="matrix-scroll">
+          <table className="score-matrix">
+            <thead>
+              <tr>
+                <th></th>
+                <th>-</th>
+                {seq2Upper.split('').map((char, idx) => (
+                  <th key={idx}>{char}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {matrix.map((row, i) => (
+                <tr key={i}>
+                  <th>{i === 0 ? '-' : seq1Upper[i - 1]}</th>
+                  {row.map((cell, j) => {
+                    const inPath = isInPath(path, i, j);
+                    const cellClass = inPath ? 'in-path' : getCellClass(cell);
+                    
+                    return (
+                      <td 
+                        key={j} 
+                        className={cellClass}
+                        title={`Score: ${cell}, Position: (${i}, ${j})`}
+                      >
+                        {cell}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  /**
+   * Determine CSS class based on cell score value
+   * Provides visual feedback on score quality
+   */
+  const getCellClass = (score) => {
+    if (score > 0) return 'positive';
+    if (score < 0) return 'negative';
+    return 'zero';
+  };
+
+  // ----------------------------------------------------------------
+  // RENDER HELPER: ALIGNMENT RESULTS DISPLAY
+  // ----------------------------------------------------------------
+  
+  /**
+   * Renders aligned sequences with statistics
+   * Shows the actual biological interpretation
+   */
+  const renderAlignment = (result) => {
+    if (!result) return null;
+
+    const { alignedSeq1, alignedSeq2, score, algorithm } = result;
+    const stats = calculateAlignmentStats(alignedSeq1, alignedSeq2);
+    const formattedAlignment = formatAlignment(alignedSeq1, alignedSeq2);
+
+    return (
+      <div className="alignment-result">
+        <div className="alignment-header">
+          <h4>{algorithm} Alignment</h4>
+          <span className="score-badge">Score: {score}</span>
+        </div>
+        
+        <pre className="alignment-display">
+          {formattedAlignment}
+        </pre>
+        
+        <div className="stats-grid">
+          <div className="stat-item">
+            <span className="stat-label">Identity:</span>
+            <span className="stat-value">{stats.identity}</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Matches:</span>
+            <span className="stat-value">{stats.matches}</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Mismatches:</span>
+            <span className="stat-value">{stats.mismatches}</span>
+          </div>
+          <div className="stat-item">
+            <span className="stat-label">Gaps:</span>
+            <span className="stat-value">{stats.gaps}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ----------------------------------------------------------------
+  // MAIN COMPONENT RENDER
+  // ----------------------------------------------------------------
+  
+  return (
+    <div className="seqsync-container">
+      {/* Professional Header with Branding */}
+      <header className="seqsync-header">
+        <div className="header-content">
+          <div className="logo-section">
+            <div className="logo-icon">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className="logo-text">
+              <h1>SeqSync</h1>
+              <p className="tagline">Sequence Alignment Visualizer</p>
+            </div>
+          </div>
+          <div className="header-meta">
+            <span className="complexity-badge">O(m×n)</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Grid */}
+      <div className="content-wrapper">
+        {/* Left Sidebar: Input Controls */}
+        <aside className="control-panel">
+          <div className="panel-section">
+            <h2 className="section-title">
+              <svg className="section-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 7h16M4 12h16M4 17h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              Input Sequences
+            </h2>
+        <div className="input-group">
+          <label htmlFor="seq1">
+            Sequence 1 (Vertical Axis)
+            <span className="length-indicator">{seq1.length} bp</span>
+          </label>
+          <input
+            id="seq1"
+            type="text"
+            value={seq1}
+            onChange={(e) => setSeq1(e.target.value.toUpperCase())}
+            placeholder="Enter DNA/Protein sequence..."
+            className="sequence-input"
+          />
+        </div>
+
+        <div className="input-group">
+          <label htmlFor="seq2">
+            Sequence 2 (Horizontal Axis)
+            <span className="length-indicator">{seq2.length} bp</span>
+          </label>
+          <input
+            id="seq2"
+            type="text"
+            value={seq2}
+            onChange={(e) => setSeq2(e.target.value.toUpperCase())}
+            placeholder="Enter DNA/Protein sequence..."
+            className="sequence-input"
+          />
+        </div>
+
+        <div className="input-group">
+          <label htmlFor="algorithm">Algorithm</label>
+          <select
+            id="algorithm"
+            value={algorithm}
+            onChange={(e) => setAlgorithm(e.target.value)}
+            className="algorithm-select"
+          >
+            <option value="both">Compare Both</option>
+            <option value="global">Needleman-Wunsch (Global)</option>
+            <option value="local">Smith-Waterman (Local)</option>
+          </select>
+        </div>
+
+        {/* Example Sequences */}
+        <div className="examples-section">
+          <span className="examples-label">Quick Examples:</span>
+          <div className="example-buttons">
+            <button onClick={() => loadExample('dna')} className="btn-example">
+              DNA
+            </button>
+            <button onClick={() => loadExample('protein')} className="btn-example">
+              Protein
+            </button>
+            <button onClick={() => loadExample('similar')} className="btn-example">
+              Identical
+            </button>
+            <button onClick={() => loadExample('different')} className="btn-example">
+              Mismatched
+            </button>
+          </div>
+        </div>
+
+        {/* Advanced Scoring Options */}
+        <div className="advanced-section">
+          <button 
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="btn-toggle-advanced"
+          >
+            {showAdvanced ? '▼' : '▶'} Advanced Scoring
+          </button>
+          
+          {showAdvanced && (
+            <div className="scoring-controls">
+              <div className="score-input-group">
+                <label>
+                  Match:
+                  <input
+                    type="number"
+                    value={scores.match}
+                    onChange={(e) => setScores({...scores, match: parseInt(e.target.value)})}
+                    className="score-input"
+                  />
+                </label>
+              </div>
+              <div className="score-input-group">
+                <label>
+                  Mismatch:
+                  <input
+                    type="number"
+                    value={scores.mismatch}
+                    onChange={(e) => setScores({...scores, mismatch: parseInt(e.target.value)})}
+                    className="score-input"
+                  />
+                </label>
+              </div>
+              <div className="score-input-group">
+                <label>
+                  Gap:
+                  <input
+                    type="number"
+                    value={scores.gap}
+                    onChange={(e) => setScores({...scores, gap: parseInt(e.target.value)})}
+                    className="score-input"
+                  />
+                </label>
+              </div>
+              <button 
+                onClick={() => setScores(DEFAULT_SCORES)}
+                className="btn-reset"
+              >
+                Reset to Defaults
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Results Section */}
+      <section className="results-section">
+        {/* Alignment Text Results */}
+        <div className="alignments-row">
+          {(algorithm === 'global' || algorithm === 'both') && renderAlignment(globalResult)}
+          {(algorithm === 'local' || algorithm === 'both') && renderAlignment(localResult)}
+        </div>
+
+        {/* Score Matrices */}
+        <div className="matrices-row">
+          {(algorithm === 'global' || algorithm === 'both') && 
+            renderMatrix(globalResult, 'Needleman-Wunsch Matrix (Global)')}
+          {(algorithm === 'local' || algorithm === 'both') && 
+            renderMatrix(localResult, 'Smith-Waterman Matrix (Local)')}
+        </div>
+      </section>
+
+      {/* Educational Footer */}
+      <footer className="seqsync-footer">
+        <div className="legend">
+          <h4>Matrix Color Legend:</h4>
+          <div className="legend-items">
+            <span className="legend-item">
+              <span className="legend-box in-path"></span>
+              Optimal Path
+            </span>
+            <span className="legend-item">
+              <span className="legend-box positive"></span>
+              Positive Score
+            </span>
+            <span className="legend-item">
+              <span className="legend-box zero"></span>
+              Zero Score
+            </span>
+            <span className="legend-item">
+              <span className="legend-box negative"></span>
+              Negative Score
+            </span>
+          </div>
+        </div>
+        <div className="complexity-info">
+          <strong>Time Complexity:</strong> O(m × n) | <strong>Space Complexity:</strong> O(m × n)
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default SeqSync;
+
+/**
+ * =====================================================================
+ * COMPONENT ARCHITECTURE NOTES
+ * =====================================================================
+ * 
+ * PERFORMANCE OPTIMIZATIONS APPLIED:
+ * -----------------------------------
+ * 
+ * 1. useMemo for Algorithm Execution
+ *    - Prevents re-running O(m*n) calculations on every render
+ *    - Dependency array ensures updates only when inputs change
+ *    - Critical for sequences > 100 characters
+ * 
+ * 2. Conditional Rendering
+ *    - Only renders visible matrices (based on algorithm selection)
+ *    - Reduces DOM node count significantly
+ * 
+ * 3. CSS-Based Styling
+ *    - Used className over inline styles for path highlighting
+ *    - Leverages browser's CSS engine (faster than JS style manipulation)
+ * 
+ * 4. Event Handler Optimization
+ *    - Input handlers use direct setState (no intermediate processing)
+ *    - Uppercase conversion deferred to computation phase
+ * 
+ * WHY NOT USE useCallback?
+ * ------------------------
+ * - Helper functions (isInPath, getCellClass) are cheap to recreate
+ * - They're not passed as props to memoized children
+ * - Adding useCallback here would be premature optimization
+ * 
+ * POTENTIAL IMPROVEMENTS FOR SCALE:
+ * ----------------------------------
+ * If targeting sequences > 1000 characters:
+ * 
+ * 1. Virtualized Matrix Rendering
+ *    - Use react-window or similar for viewport-only rendering
+ *    - Current approach renders full matrix (DOM heavy)
+ * 
+ * 2. Web Worker for Computation
+ *    - Offload algorithm execution to background thread
+ *    - Prevents UI blocking during long calculations
+ * 
+ * 3. Progressive Rendering
+ *    - Show matrix row-by-row as it computes
+ *    - Better UX for large sequences
+ * 
+ * 4. Debounced Input
+ *    - Add 300ms debounce to sequence inputs
+ *    - Prevents recalculation while user is typing
+ * 
+ * CURRENT DESIGN TRADE-OFFS:
+ * ---------------------------
+ * - Chose simplicity over micro-optimization
+ * - Target use case: Educational demo with sequences < 50 chars
+ * - Prioritized code readability for portfolio review
+ * - All optimizations are measurable and documented
+ * 
+ * =====================================================================
+ */

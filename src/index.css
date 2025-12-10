@@ -1,0 +1,92 @@
+/**
+ * =====================================================================
+ * ROOT STYLES & DESIGN TOKENS
+ * =====================================================================
+ */
+
+:root {
+  /* GitHub-inspired Professional Color Palette */
+  --color-text-primary: #24292e;
+  --color-text-secondary: #586069;
+  --color-text-tertiary: #6a737d;
+  --color-text-link: #0366d6;
+  --color-text-success: #28a745;
+  --color-text-danger: #d73a49;
+  --color-text-warning: #b08800;
+  
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #fafbfc;
+  --color-bg-tertiary: #f6f8fa;
+  --color-bg-overlay: rgba(27,31,35,0.5);
+  
+  --color-border-primary: #e1e4e8;
+  --color-border-secondary: #d1d5da;
+  --color-border-tertiary: #c8cdd2;
+  
+  --color-state-hover: #f3f4f6;
+  --color-state-selected: #f1f8ff;
+  --color-state-focus: rgba(3,102,214,0.1);
+  
+  /* Spacing Scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'SF Mono', 'Monaco', 'Consolas', 'Courier New', monospace;
+  
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 0 rgba(27,31,35,0.04);
+  --shadow-md: 0 1px 3px rgba(27,31,35,0.04);
+  --shadow-lg: 0 3px 12px rgba(27,31,35,0.08);
+  --shadow-xl: 0 8px 24px rgba(27,31,35,0.12);
+  
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+  
+  /* Transitions */
+  --transition-fast: 0.1s ease;
+  --transition-base: 0.15s ease;
+  --transition-slow: 0.2s ease;
+  
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
