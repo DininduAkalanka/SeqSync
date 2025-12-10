@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://DininduAkalanka.github.io/SeqSync",
+  "homepage": "https://dininduakalanka.github.io/SeqSync/",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
